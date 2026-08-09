@@ -3,50 +3,87 @@ package com.example.expensetracker
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.dp
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.example.expensetracker.ui.HomeScreen
+import com.example.expensetracker.ui.ProfileScreen
+import com.example.expensetracker.ui.StatsScreen
 import com.example.expensetracker.ui.theme.ExpenseTrackerTheme
 
-class MainActivity : ComponentActivity() {
+sealed class Screen(val route: String, val label: String) {
+    object Home : Screen("home", "Home")
+    object Stats : Screen("stats", "Stats")
+    object Profile : Screen("profile", "Profile")
+}
 
-    private val viewModel by lazy {
-        ExpenseViewModel(application as ExpenseApp)
-    }
+class MainActivity : ComponentActivity() {
+    private val viewModel by lazy { AppViewModel(application as ExpenseApp) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             ExpenseTrackerTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    ExpenseScreen(viewModel)
-                }
+                Surface(modifier = Modifier.fillMaxSize()) { AppRoot(viewModel) }
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        viewModel.loadMonthlyTotal()
+        viewModel.loadMonthlySummary()
     }
 }
 
 @Composable
-fun ExpenseScreen(viewModel: ExpenseViewModel) {
-    val total by viewModel.monthlyTotal.collectAsState()
+fun AppRoot(viewModel: AppViewModel) {
+    val navController = rememberNavController()
+    val items = listOf(Screen.Home, Screen.Stats, Screen.Profile)
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("This Month's Expenses", fontSize = 18.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("₹$total", fontSize = 40.sp)
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+                items.forEach { screen ->
+                    val icon = when (screen) {
+                        Screen.Home -> Icons.Default.Home
+                        Screen.Stats -> Icons.Default.BarChart
+                        Screen.Profile -> Icons.Default.Person
+                    }
+                    NavigationBarItem(
+                        icon = { Icon(icon, contentDescription = screen.label) },
+                        label = { Text(screen.label) },
+                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                        onClick = {
+                            navController.navigate(screen.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        NavHost(navController = navController, startDestination = Screen.Home.route, modifier = Modifier.padding(innerPadding)) {
+            composable(Screen.Home.route) { HomeScreen(viewModel) }
+            composable(Screen.Stats.route) { StatsScreen(viewModel) }
+            composable(Screen.Profile.route) { ProfileScreen(viewModel) }
         }
     }
 }
