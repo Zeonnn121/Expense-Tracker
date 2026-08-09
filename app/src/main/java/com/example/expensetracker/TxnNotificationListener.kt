@@ -30,9 +30,9 @@ class TxnNotificationListener : NotificationListenerService() {
         val parser = BankParserFactory.getParser(title)
             ?: BankParserFactory.getParser(sbn.packageName)
             ?: return
-
+        android.util.Log.d("NotifDebug", "Parser matched: ${parser.getBankName()}")
         val parsed = parser.parse(text, title, System.currentTimeMillis()) ?: return
-
+        android.util.Log.d("NotifDebug", "Parsed amount=${parsed.amount} type=${parsed.type} merchant=${parsed.merchant}")
         val entity = TransactionEntity(
             amount = parsed.amount,
             type = parsed.type.name,
