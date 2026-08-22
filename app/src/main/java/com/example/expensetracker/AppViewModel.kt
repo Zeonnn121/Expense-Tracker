@@ -24,6 +24,25 @@ class AppViewModel(private val app: ExpenseApp) : ViewModel() {
         app.db.transactionDao().getAllTransactions()
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    private val _selectedCounterparty = MutableStateFlow<String?>(null)
+    val selectedCounterparty: StateFlow<String?> = _selectedCounterparty
+
+    // All transactions shared with the currently selected counterparty,
+    // newest first (same order as allTransactions)
+    val counterpartyTransactions: StateFlow<List<TransactionEntity>> =
+        combine(allTransactions, _selectedCounterparty) { txns, name ->
+            if (name == null) emptyList()
+            else txns.filter { (it.merchant ?: it.bankName) == name }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun openTransactionProfile(counterparty: String) {
+        _selectedCounterparty.value = counterparty
+    }
+
+    fun closeTransactionProfile() {
+        _selectedCounterparty.value = null
+    }
+
     val balance: StateFlow<Double> = combine(baseBalance, allTransactions) { base, txns ->
         base + txns.sumOf { txn ->
             when (txn.type) {

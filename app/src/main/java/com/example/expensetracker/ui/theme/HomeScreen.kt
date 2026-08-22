@@ -31,7 +31,10 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun HomeScreen(viewModel: AppViewModel) {
+fun HomeScreen(
+    viewModel: AppViewModel,
+    onTransactionClick: (String) -> Unit
+) {
 
     val balance by viewModel.balance.collectAsState()
     val income by viewModel.monthlyIncome.collectAsState()
@@ -203,6 +206,14 @@ fun HomeScreen(viewModel: AppViewModel) {
                     TransactionRow(
                         txn = txn,
                         currency = currency,
+
+                        // Tap opens the transaction profile
+                        // with this counterparty
+                        onClick = {
+                            onTransactionClick(
+                                txn.merchant ?: txn.bankName
+                            )
+                        },
 
                         // IMPORTANT:
                         // Delete dialog opens ONLY after long press
@@ -567,6 +578,7 @@ fun HomeScreen(viewModel: AppViewModel) {
 fun TransactionRow(
     txn: TransactionEntity,
     currency: String,
+    onClick: () -> Unit,
     onLongPress: () -> Unit
 ) {
 
@@ -589,15 +601,13 @@ fun TransactionRow(
             .fillMaxWidth()
 
             // ───────────────────────────────
-            // LONG PRESS TO DELETE
+            // TAP → TRANSACTION PROFILE
+            // LONG PRESS → DELETE
             // ───────────────────────────────
             .combinedClickable(
 
-                // Normal tap does NOTHING
-                onClick = { },
+                onClick = onClick,
 
-                // Hold the transaction
-                // to open delete confirmation
                 onLongClick = {
                     onLongPress()
                 }
