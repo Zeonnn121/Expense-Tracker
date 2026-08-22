@@ -14,14 +14,25 @@ class AppViewModel(private val app: ExpenseApp) : ViewModel() {
 
     private val prefs = UserPreferences(app)
 
-    val balance: StateFlow<Double> = prefs.balance.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
     val userName: StateFlow<String> = prefs.name.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val userEmail: StateFlow<String> = prefs.email.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val currency: StateFlow<String> = prefs.currency.stateIn(viewModelScope, SharingStarted.Eagerly, "₹")
 
+    private val baseBalance: StateFlow<Double> = prefs.balance.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
+
     val allTransactions: StateFlow<List<TransactionEntity>> =
         app.db.transactionDao().getAllTransactions()
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val balance: StateFlow<Double> = combine(baseBalance, allTransactions) { base, txns ->
+        base + txns.sumOf { txn ->
+            when (txn.type) {
+                "INCOME" -> txn.amount.toDouble()
+                "EXPENSE" -> -txn.amount.toDouble()
+                else -> 0.0
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
 
     private val _monthlyIncome = MutableStateFlow(BigDecimal.ZERO)
     val monthlyIncome: StateFlow<BigDecimal> = _monthlyIncome
@@ -47,11 +58,45 @@ class AppViewModel(private val app: ExpenseApp) : ViewModel() {
         }
     }
 
-    fun updateBalance(value: Double) { viewModelScope.launch { prefs.setBalance(value) } }
+    fun updateBalance(desiredBalance: Double) {
+        viewModelScope.launch {
+            // User wants the displayed balance to be exactly desiredBalance.
+            // displayed = base + transactionTotal, so base = desired - transactionTotal
+            val transactionTotal = allTransactions.value.sumOf { txn ->
+                when (txn.type) {
+                    "INCOME" -> txn.amount.toDouble()
+                    "EXPENSE" -> -txn.amount.toDouble()
+                    else -> 0.0
+                }
+            }
+            prefs.setBalance(desiredBalance - transactionTotal)
+        }
+    }
 
     fun updateProfile(name: String, email: String, currency: String) {
         viewModelScope.launch {
             prefs.setName(name); prefs.setEmail(email); prefs.setCurrency(currency)
+        }
+    }
+
+    fun addTransaction(amount: BigDecimal, type: String, merchant: String?, bankName: String) {
+        viewModelScope.launch {
+            val entity = TransactionEntity(
+                amount = amount,
+                type = type,
+                merchant = merchant?.ifBlank { null },
+                bankName = bankName.ifBlank { "Manual" },
+                timestamp = System.currentTimeMillis()
+            )
+            app.db.transactionDao().insert(entity)
+            loadMonthlySummary()
+        }
+    }
+
+    fun deleteTransaction(tx: TransactionEntity) {
+        viewModelScope.launch {
+            app.db.transactionDao().delete(tx)
+            loadMonthlySummary()
         }
     }
 

@@ -1,5 +1,6 @@
 package com.example.expensetracker.data
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import java.math.BigDecimal
@@ -11,6 +12,9 @@ data class MerchantSpending(val merchant: String?, val total: BigDecimal)
 interface TransactionDao {
     @Insert
     suspend fun insert(tx: TransactionEntity)
+
+    @Delete
+    suspend fun delete(tx: TransactionEntity)
     @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
     fun getAllTransactions(): Flow<List<TransactionEntity>>
 
