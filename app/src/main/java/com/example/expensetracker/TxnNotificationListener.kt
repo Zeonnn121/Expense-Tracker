@@ -43,7 +43,11 @@ class TxnNotificationListener : NotificationListenerService() {
 
         val app = applicationContext as ExpenseApp
         CoroutineScope(Dispatchers.IO).launch {
-            app.db.transactionDao().insert(entity)
+            val dao = app.db.transactionDao()
+            val isDuplicate = dao.countDuplicates(
+                entity.amount, entity.type, entity.bankName, entity.timestamp
+            ) > 0
+            if (!isDuplicate) dao.insert(entity)
         }
     }
 }
