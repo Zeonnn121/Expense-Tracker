@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -25,11 +26,13 @@ import com.example.expensetracker.ui.HomeScreen
 import com.example.expensetracker.ui.ProfileScreen
 import com.example.expensetracker.ui.StatsScreen
 import com.example.expensetracker.ui.TransactionProfileScreen
+import com.example.expensetracker.ui.TransactionsScreen
 import com.example.expensetracker.ui.theme.ExpenseTrackerTheme
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector? = null) {
     object Home : Screen("home", "Home", Icons.Default.Home)
     object Stats : Screen("stats", "Stats", Icons.Default.BarChart)
+    object Transactions : Screen("transactions", "Transactions", Icons.Default.List)
     object Profile : Screen("profile", "Profile", Icons.Default.Person)
 
     // Detail screen — not a tab, bottom bar hidden
@@ -57,7 +60,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppRoot(viewModel: AppViewModel) {
     val navController = rememberNavController()
-    val items = listOf(Screen.Home, Screen.Stats, Screen.Profile)
+    val items = listOf(Screen.Home, Screen.Stats, Screen.Transactions, Screen.Profile)
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -67,12 +70,16 @@ fun AppRoot(viewModel: AppViewModel) {
         currentDestination?.hierarchy?.any { it.route == screen.route } == true
     }
 
+    val navigateToProfile = { counterparty: String ->
+        viewModel.openTransactionProfile(counterparty)
+        navController.navigate(Screen.TransactionProfile.route)
+    }
+
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar {
                     items.forEach { screen ->
-
                         NavigationBarItem(
                             icon = { screen.icon?.let { Icon(it, contentDescription = screen.label) } },
                             label = { Text(screen.label) },
@@ -94,16 +101,16 @@ fun AppRoot(viewModel: AppViewModel) {
             composable(Screen.Home.route) {
                 HomeScreen(
                     viewModel = viewModel,
-                    // Tap on a transaction row: set the selected
-                    // counterparty on the ViewModel, then navigate
-                    // to the detail screen.
-                    onTransactionClick = { counterparty ->
-                        viewModel.openTransactionProfile(counterparty)
-                        navController.navigate(Screen.TransactionProfile.route)
-                    }
+                    onTransactionClick = navigateToProfile
                 )
             }
             composable(Screen.Stats.route) { StatsScreen(viewModel) }
+            composable(Screen.Transactions.route) {
+                TransactionsScreen(
+                    viewModel = viewModel,
+                    onTransactionClick = navigateToProfile
+                )
+            }
             composable(Screen.Profile.route) { ProfileScreen(viewModel) }
             composable(Screen.TransactionProfile.route) {
                 TransactionProfileScreen(
