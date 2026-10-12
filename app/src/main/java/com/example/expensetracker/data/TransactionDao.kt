@@ -31,9 +31,17 @@ interface TransactionDao {
 """)
     suspend fun getSpendingByMerchant(): List<MerchantSpending>
     @Query("""
-        SELECT SUM(amount) FROM transactions 
-        WHERE type = 'EXPENSE' 
+        SELECT SUM(amount) FROM transactions
+        WHERE type = 'EXPENSE'
         AND timestamp BETWEEN :monthStart AND :monthEnd
     """)
     suspend fun getMonthlyTotal(monthStart: Long, monthEnd: Long): BigDecimal?
+
+    // Dedup check: same amount+type+bank within a 5-second window = duplicate
+    @Query("""
+        SELECT COUNT(*) FROM transactions
+        WHERE amount = :amount AND type = :type AND bankName = :bankName
+        AND timestamp BETWEEN :timestamp - 5000 AND :timestamp + 5000
+    """)
+    suspend fun countDuplicates(amount: BigDecimal, type: String, bankName: String, timestamp: Long): Int
 }
