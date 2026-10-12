@@ -1,7 +1,8 @@
 package com.example.expensetracker.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,6 +67,7 @@ fun TransactionsScreen(
     var dateFilter by remember { mutableStateOf(DateFilter.THIS_MONTH) }
     var amountFilter by remember { mutableStateOf(AmountFilter.ALL) }
     var typeFilter by remember { mutableStateOf(TypeFilter.ALL) }
+    var txnToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
 
     // Apply filters
     val filtered = remember(allTxns, dateFilter, amountFilter, typeFilter) {
@@ -231,7 +234,8 @@ fun TransactionsScreen(
                     TxnRow(
                         txn = txn,
                         currency = currency,
-                        onClick = { onTransactionClick(txn.merchant ?: txn.bankName) }
+                        onClick = { onTransactionClick(txn.merchant ?: txn.bankName) },
+                        onLongPress = { txnToDelete = txn }
                     )
                 }
 
@@ -240,6 +244,25 @@ fun TransactionsScreen(
                 }
             }
         }
+    }
+
+    // Delete confirm dialog
+    txnToDelete?.let { txn ->
+        AlertDialog(
+            onDismissRequest = { txnToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Delete Transaction") },
+            text = { Text("Delete this transaction? This cannot be undone and will adjust your balance.") },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.deleteTransaction(txn); txnToDelete = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { txnToDelete = null }) { Text("Cancel") }
+            }
+        )
     }
 }
 
@@ -311,11 +334,13 @@ private val avatarColors = listOf(
     Color(0xFFAD1457), Color(0xFF00695C)
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TxnRow(
     txn: TransactionEntity,
     currency: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongPress: () -> Unit
 ) {
     val isIncome = txn.type == "INCOME"
     val label = txn.merchant ?: txn.bankName
@@ -329,7 +354,7 @@ private fun TxnRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
